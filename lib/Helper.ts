@@ -53,7 +53,7 @@ function getArguments(func:Function): Array<string> {
     });
 }
 
-function  findSuper(child: Function): Function{
+function  getSuper(child: Function): Function{
     let _super: Function = Object.getPrototypeOf(child.prototype).constructor;
     return _super;
 }
@@ -88,14 +88,115 @@ function collectSchema(clazz:Function): Array<{name: String, properties: Array<{
     return schema;
 }
 
+function getTypeProperty(clazz: Function, propertyName: String){
+    let _clazz = clazz;
+    let propertyNameItems = propertyName.split('.');
+    propertyNameItems.forEach(propertyNameItem =>{
+        if(_clazz){
+            let declaredProperties = findDeclaredProperties(_clazz);
+            let declaredProperty = declaredProperties.find(property => property.name === propertyNameItem);
+            if(declaredProperty){
+                _clazz = declaredProperty.type;
+            } else {
+                _clazz = undefined;
+            }
+        }
+    });
+    return _clazz;
+}
+
+
+// $and:address.geographic.latitude$gte => {prefix: $and, suffix: $gte, property: address.geographic.latitude}
+function separatePrefixSuffixAndPropertyItem(requestProperty: String): {prefix: String, suffix: String, property: String}{
+    let prefix, suffix, property;
+    //find  prefix
+    let firstIndexColonSign = requestProperty.indexOf(':');
+    if( requestProperty.indexOf('$') ===0 && firstIndexColonSign > 0){// ex: end with $and of $and:address.geographic.latitude
+        prefix = requestProperty.substring(0, firstIndexColonSign);
+        requestProperty = requestProperty.substring(firstIndexColonSign + 1);
+    }
+    //find suffix
+    let lastIndexDollarSign  = requestProperty.lastIndexOf('$');
+    let lastIndexColonSign = requestProperty.lastIndexOf(':');
+    if( lastIndexDollarSign > lastIndexColonSign ){// ex: end with $gte of address.geographic.latitude$gte
+        suffix = requestProperty.substring(lastIndexDollarSign);
+        requestProperty = requestProperty.substring(0, lastIndexDollarSign);
+    }
+    // property
+    property = requestProperty;
+    //
+    return {prefix, suffix, property};
+}
+
+function isNotEmptyObject(obj) {
+    let result = false;
+    if(obj !== null && obj !== undefined){
+        if (['string', 'number', 'boolean'].includes(typeof obj)){
+            result = true;
+        } else {
+            if (typeof obj === 'object') {
+                if(obj instanceof String || obj instanceof Date || obj instanceof Number || obj instanceof Boolean){
+                    result = true;
+                } else if (Object.keys(obj).length > 0) {
+                    Object.keys(obj).forEach(property => {
+                        if (!result) {
+                            result = isNotEmptyObject(obj[property]);
+                        }
+                    });
+                }
+            }
+        }
+    }
+    return result;
+}
 //function collectSchema(clazz:String): Array<{name: String, properties: Array<{name:String, type: String}>}>{
 //    return null;
 //}
 
+function unUnitName(str: string): string{
+    var re = new RegExp(/./g)
+    str = str.toLowerCase();
+    str = str.replace(/!|@|%|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'|\"|\&|\#|\[|\]|~|\$|_|`|-|{|}|\||\\/g," ");
+    str = str.replace(/a|à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,'(a|à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ)');
+    str = str.replace(/e|è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,'(e|è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ)');
+    str = str.replace(/i|ì|í|ị|ỉ|ĩ/g,'(i|ì|í|ị|ỉ|ĩ)');
+    str = str.replace(/o|ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,'(o|ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ)');
+    str = str.replace(/u|ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,'(u|ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ)');
+    str = str.replace(/y|ỳ|ý|ỵ|ỷ|ỹ/g,'(y|ỳ|ý|ỵ|ỷ|ỹ)');
+    str = str.replace(/d|đ/g,'(d|đ)');
+
+    str = str.trim();
+    str = str.replace(/ +/g,"(.*)");
+    return str;
+}
+
+function searchVNStringRegexFormat(str: string): string{
+    var re = new RegExp(/./g)
+    str = str.toLowerCase();
+    // str = str.replace(/!|@|%|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'|\"|\&|\#|\[|\]|~|\$|_|`|-|{|}|\||\\/g," ");
+    str = str.replace(/a|à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,'(a|à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ)');
+    str = str.replace(/e|è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,'(e|è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ)');
+    str = str.replace(/i|ì|í|ị|ỉ|ĩ/g,'(i|ì|í|ị|ỉ|ĩ)');
+    str = str.replace(/o|ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,'(o|ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ)');
+    str = str.replace(/u|ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,'(u|ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ)');
+    str = str.replace(/y|ỳ|ý|ỵ|ỷ|ỹ/g,'(y|ỳ|ý|ỵ|ỷ|ỹ)');
+    str = str.replace(/d|đ/g,'(d|đ)');
+
+    str = str.trim();
+    str = str.replace(/ +/g,"(.*)");
+    return str;
+}
+
 
 export default class Helper{
     public static getArguments: Function = getArguments;
-    public static findSuper: Function = findSuper;
-    public static findDeclaredProperties = findDeclaredProperties
-    public static collectSchema = collectSchema
+    public static findSuper: Function = getSuper;
+    public static findDeclaredProperties = findDeclaredProperties;
+    public static collectSchema = collectSchema;
+    public static getTypeProperty = getTypeProperty;
+    public static isNotEmptyObject = isNotEmptyObject;
+    public static separatePrefixSuffixAndPropertyItem = separatePrefixSuffixAndPropertyItem;
+    public static unUnitName = unUnitName;
+    public static searchVNStringRegexFormat = searchVNStringRegexFormat
+
 }
