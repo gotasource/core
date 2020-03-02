@@ -1,12 +1,13 @@
 {
   "name": "@gota/core",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "prepublish": "gtc",
+    "prepare": "gtc",
+    "publish": "npm publish --access public",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
