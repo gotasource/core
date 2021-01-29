@@ -273,7 +273,10 @@ function flatProperties(obj: any) {
     } else if (typeof obj === 'object' && Object.entries(obj).length > 0) {
         Object.entries(obj).forEach(([key, value]) => {
             if (key.startsWith('$')) {
-                obj[key] = flatProperties(value);
+                obj[key] =Object.entries(flatProperties(value)).reduce((previous, [k,v]) => {
+                    previous.push({[k] : v});
+                    return previous;
+                }, []);
             } else {
                 delete (obj[key]);
                 Object.assign(obj, addPrefixToProperties(value as Object, key));
@@ -285,20 +288,30 @@ function flatProperties(obj: any) {
 
 function regexFormat(obj: any) {
     if (Array.isArray(obj)) {
-        obj = (obj as Array<any>).map(item => regexFormat(item));
+        obj = obj.map(item => regexFormat(item));
     } else if (typeof obj === 'object' && Object.entries(obj).length > 0) {
         Object.entries(obj).forEach(([key, value]) => {
-            if (key === '$regex') {
-                let regexValue = Helper.searchVNStringRegexFormat(value.toString());
-                //value = {
-                //    $regex: new RegExp(regexValue, 'i')
-                //}
-
-                obj = new RegExp(regexValue, 'i');
-            } else {
-                obj[key] = regexFormat(value);
-            }
+            obj[key] =  (() => {
+                switch(key){
+                    case '$exists': // deletedAt.$exists: 'true' => true
+                        return JSON.parse(value.toString().toLowerCase());
+                    case '$in': // name.$in: '[hiep, hong, cao, $regex:hong]' => ['hiep', 'hong', 'cao', '$regex:hong']
+                        value = value.toString().replace(/\[|\]/g, '').split(',').map(v => v.trim());
+                    // return regexFormat(value); <= call default
+                    default:
+                        return regexFormat(value);
+                }
+            })();
         });
+    } else {
+        if (obj.toString().startsWith('$regex:')) {
+            let value = obj.toString().substring('$regex:'.length)
+            let regexValue = Helper.searchVNStringRegexFormat(value.toString().substring());
+            obj = new RegExp(regexValue, 'i');
+        } else if(obj.toString().startsWith('$date')){
+            let value = obj.toString().substring('$date:'.length)
+            obj = new Date(value);
+        }
     }
     return obj;
 }

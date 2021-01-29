@@ -1,6 +1,6 @@
 {
   "name": "@gota/core",
-  "version": "0.0.12",
+  "version": "0.0.16",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
   "author": "caohonghiep",
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^2.5.2",
+    "@gota/cli": "latest",
     "@types/node": "^9.4.6"
   },
   "dependencies": {
